@@ -1,6 +1,6 @@
 <script setup>
 
-import {onMounted, reactive} from "vue";
+import {nextTick, onMounted, onUpdated, reactive} from "vue";
 
 let props = defineProps({
   imageData:[]
@@ -10,150 +10,160 @@ let vars = reactive({
   smallItem:0,
   mediumItem:0,
   largeItem:0,
-  gap:8
-})
+  gap:8,
+  cardsInView: 3
+});
 
-onMounted(()=>{
+const changeCardWidth = (el, newWidth) => {
+  el.classList.remove("large", 'medium', 'small');
+  el.classList.add(newWidth);
+}
 
-  let carousel = document.querySelector('.carousel');
-  let carouselWidth = carousel.getBoundingClientRect().width;
-  vars.mediumItem = Math.round( carouselWidth/100 * 40);
-  vars.largeItem =  Math.round( carouselWidth/100 * 50);
-  vars.smallItem =  (carousel.scrollWidth) - vars.mediumItem - vars.largeItem - 16;
-  let cards = document.querySelectorAll('.carousel-item');
+onMounted(()=> {
+  let carouselWidth = document.querySelector(".carousel").getBoundingClientRect().width;
+  let cards = document.querySelectorAll(".carousel-item");
+  vars.largeItem = Math.round((carouselWidth - vars.gap * ( vars.cardsInView-1) )/ 100 * 50);
+  vars.mediumItem = Math.round((carouselWidth - vars.gap * ( vars.cardsInView-1) )/ 100 * 35);
+  vars.smallItem = carouselWidth - vars.largeItem - vars.mediumItem - vars.gap * ( vars.cardsInView-1);
   let i = 0;
   cards.forEach(card => {
-    if(i===0){
-      card.style.minWidth = vars.largeItem +'px';
+    if (i === 0) {
+      card.style.minWidth = vars.largeItem + "px";
+    } else if (i === 1) {
+      card.style.minWidth = vars.mediumItem + "px";
+    } else {
+      card.style.minWidth = vars.smallItem + "px";
     }
-    else if(i===1){
-      card.style.minWidth = vars.mediumItem +'px';
-    }else{
-      card.style.minWidth = vars.smallItem - 8 +'px';
-    }
-    //card.innerHTML = card.getBoundingClientRect().left.toString();
     i += 1;
   })
-
 })
-let lastScroll = 0;
-const scroll = (e) => {
-  e.preventDefault();
+
+let delta = 0;
+let isMoving = false;
+const scroll = (move) => {
   let carousel = document.querySelector('.carousel');
   let cards = document.querySelectorAll('.carousel-item');
   let zeroPsn = carousel.getBoundingClientRect().left;
-  let delta = e.deltaX;
-  console.log(e.deltaX);
-  //carousel.scrollBy(e.deltaX,0);
-  let i =0;
+
+      delta = move;
+
+
+//console.log(isMoving + " " + delta);
+  let i = 0;
   cards.forEach(card => {
-    let cardLeft = card.getBoundingClientRect().left;
     let cardWidth = card.getBoundingClientRect().width;
-    //card.innerHTML = cardLeft.toString();
+    let cardLeft = card.getBoundingClientRect().left;
 
-
-      if(delta>0) {
-
-        if (cardWidth - delta <= 1) {
-          card.classList.add('visually-hidden');
+    if (delta > 0) {
+      if(i<cards.length-3) {
+        if (cardLeft === zeroPsn && cardWidth === vars.largeItem) {
+          card.style.minWidth = vars.smallItem + "px";
+          cards[i + 1].style.minWidth = vars.largeItem + "px";
+          cards[i + 2].style.minWidth = vars.mediumItem + "px";
+          return;
         } else {
-          card.classList.remove('visually-hidden');
-        }
-
-        if (cardLeft <= zeroPsn && cardWidth - delta <= vars.largeItem) {
-          //card.style.background = 'blue';
-          card.style.minWidth = card.getBoundingClientRect().width - delta + 'px';
-          if(i===cards.length-3 && cardWidth<=vars.smallItem) {
-            card.style.minWidth = vars.smallItem + 'px';
-          }
-        } else {
-          if (cardLeft <= zeroPsn + vars.largeItem + vars.gap && cardWidth + delta <= vars.largeItem) {
-            //card.style.background = 'red';
-            card.style.minWidth = card.getBoundingClientRect().width + delta + 'px';
-          } else {
-            if (cardLeft <= zeroPsn + vars.largeItem + vars.gap + vars.mediumItem + vars.gap - 1 && cardWidth <= vars.mediumItem) {
-              //card.style.background = 'yellow';
-              card.style.minWidth = card.getBoundingClientRect().width + delta + 'px';
-            }
+          if (cardLeft === zeroPsn && cardWidth === vars.smallItem) {
+            card.style.minWidth = 0 + "px";
+            return;
           }
         }
-
-
-
-      }else if(delta<0) {
-
-        if(cardLeft <= zeroPsn && cardWidth + delta <= vars.largeItem && !card.classList.contains('visually-hidden')) {
-          if(cardWidth - delta <= vars.largeItem) {
-            card.style.minWidth = cardWidth - delta + 'px';
-          }else {
-            card.style.minWidth = vars.largeItem + 'px';
-          }
-
-        }else {
-
-        }
-        if(cardLeft> zeroPsn){
-          if(i > 0 && cards[i-1].getBoundingClientRect().left===zeroPsn && cards[i-1].getBoundingClientRect().width>=vars.smallItem ){
-            if (cardWidth+delta<=vars.mediumItem) {
-              card.style.minWidth = vars.mediumItem + 'px';
-            }else{
-              card.style.minWidth = cardWidth + delta + 'px';
-            }
-          }
-        }
-
-        if(cardLeft > zeroPsn && cardWidth>vars.smallItem){
-          if(i > 1 && cards[i-2].getBoundingClientRect().left===zeroPsn && cards[i-1].getBoundingClientRect().width===vars.mediumItem) {
-            if (cardWidth+delta<vars.smallItem) {
-              card.style.minWidth = vars.smallItem + 'px';
-            }else{
-              card.style.minWidth = cardWidth + delta + 'px';
-            }
-          }
-        }
-
-        if(card.classList.contains('visually-hidden') && cards[i+1].getBoundingClientRect().width===vars.largeItem && cards[i+1].getBoundingClientRect().width>=vars.largeItem) {
-          card.classList.remove('visually-hidden');
-        }
-
       }
 
+    } else if (delta < 0) {
 
+      if (card.classList.contains('visually-hidden')) {
 
+        if (cards[i+1].getBoundingClientRect().width === vars.largeItem){
+          card.classList.remove('visually-hidden');
+          card.style.minWidth = vars.smallItem + "px";
+        }
+      }
+      if(cardLeft === zeroPsn && cardWidth === vars.smallItem){
+        card.style.minWidth = vars.largeItem + "px";
+        cards[i+1].style.minWidth = vars.mediumItem + "px";
+        cards[i+2].style.minWidth = vars.smallItem + "px";
+      }
 
+    }
+    i+=1;
 
-
-i+=1;
   })
-  delta = e.deltaX;
-
-
 }
 
 
 
 
 
-
-const scrollEnd = ()=> {
+function animEnd(){
+  isMoving = false;
+  let cards = document.querySelectorAll('.carousel-item');
+  let carousel = document.querySelector('.carousel');
+  cards.forEach(card => {
+    if (card.getBoundingClientRect().width <= 0){
+      card.classList.add("visually-hidden");
+    }
+  })
 }
 
+function deltaZero(){
+  isMoving = true;
+}
+function leftClick(){
+  if (!isMoving) {
 
+    scroll(1);
+  }
+}
+function rightClick(){
+  if (!isMoving) {
 
-
+    scroll(-1);
+  }
+}
 
 </script>
 
 <template>
-<div  class="carousel" @wheel="scroll" @scrollend="scrollEnd">
+<div  class="carousel" @transitionend="animEnd" @transitionrun="deltaZero" >
+  <div class="arrow left" @click="leftClick">
+      <img class="ico-arrow" src="../assets/components/carousel/left-arrow.svg" alt="arrow">
+  </div>
   <div class="carousel-item" v-for='image in props.imageData' >
     <img class="image" :src="image.original"  alt="">
+  </div>
+  <div class="arrow right" @click="rightClick">
+    <img class="ico-arrow mirrored" src="../assets/components/carousel/left-arrow.svg" alt="arrow">
   </div>
   </div>
 </template>
 
 <style scoped>
 
+.arrow{
+  position: absolute;
+  height: 20%;
+  width: 7%;
+  background-color: white;
+  opacity: 0;
+  transition: 0.3s;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 30px;
+  margin: 8px;
+}
+.left{
+  left: 0;
+}
+.right{
+  right: 0;
+}
+
+.carousel:hover .arrow{
+  opacity: 0.5;
+  transition: 0.3s;
+}
 
 
 .carousel{
@@ -170,7 +180,6 @@ const scrollEnd = ()=> {
 .image{
   position: absolute;
   object-fit: cover;
-  width: 120%;
   height: 120%;
   transform-origin: center;
 
@@ -186,6 +195,7 @@ const scrollEnd = ()=> {
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  transition: 0.5s;
 }
 .shrink{
   transition: 0.2s ease-in-out;
@@ -193,8 +203,7 @@ const scrollEnd = ()=> {
 
 .visually-hidden {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: 0px;
   margin: -1px;
   border: 0;
   padding: 0;
@@ -202,6 +211,24 @@ const scrollEnd = ()=> {
   clip-path: inset(100%);
   clip: rect(0 0 0 0);
   overflow: hidden;
+}
+
+.ico-arrow{
+  width: 50%;
+  height: 50%;
+  object-fit: contain;
+}
+.mirrored{
+  transform: scaleX(-1);
+}
+.large{
+  max-width: 50%;
+}
+.medium{
+    max-width: 35%;
+}
+.small{
+  max-width: 15%;
 }
 </style>
 
